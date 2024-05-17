@@ -1,10 +1,10 @@
 # Quest2ROS
-Ros code to connect the occulus quest to ROS and recive the controler Position/velocitys and send haptic feedback to the controllers.
+Ros code to connect the Occlus quest to ROS and receive the controller Position/velocities and send haptic feedback to the controllers.
 
 
 ## setup
 
-1. Install Quest2ROS on your occulus VR headset [https://quest2ros.github.io/q2r-web/](https://quest2ros.github.io/q2r-web/)
+1. Install Quest2ROS on your oculus VR headset [https://quest2ros.github.io/q2r-web/](https://quest2ros.github.io/q2r-web/)
 
 2. Clone [ROS TCP enpoint](https://github.com/Unity-Technologies/ROS-TCP-Endpoint) into your catkin workspace src
 
@@ -18,7 +18,7 @@ Ros code to connect the occulus quest to ROS and recive the controler Position/v
 
 `catkin build`
 
-5. Make sure ROS PC and Occulus Headset are on the same (WIFI) network
+5. Make sure ROS PC and Oculus Headset are on the same (WIFI) network
 
 6. Start ROS TCP endpoint (replace <YOUR_IP>)
 
@@ -32,12 +32,19 @@ Ros code to connect the occulus quest to ROS and recive the controler Position/v
 
 `rosrun quest2ros ros2quest.py`
 
-10. You can now move the dice and Q2R logo in the VR by pressing the lower controller button of left and right controller respectivly
+10. You can now move the dice and Q2R logo in the VR by pressing the lower controller button on the left and right controller, respectively
 
-## Cordinate frame allignment
+## Coordinate frame alignment
 
-By pressing A + B on the right and X+Y on the left the relative cordinatframe gets alligned to the current controller position.
+By pressing A + B on the right and X+Y on the left, the relative coordinate frame gets aligned to the current controller position.
 To use this for robot teleop allign the controller with the base frame of the robot and press the buttons.
+
+## Troubleshooting
+In case the TCP-endpoint is not connecting to the VR app, try to allow the connection through the port you have specified (10000 in this example) with the following command:
+
+```
+sudo iptables -I INPUT -p tcp -m tcp --dport 10000 -j ACCEPT
+```
 
 ## Bibtex
 
