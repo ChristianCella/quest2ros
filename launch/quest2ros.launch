@@ -1,0 +1,19 @@
+<launch>
+
+    <arg name="ip"          default="192.168.125.120" doc="ip of the ROS machine (this machine)"/> 
+    <arg name="port"        default="10000" doc="port to connect ROS-TCP"/> <!-- Possibilities: 'true' or 'false'-->
+    <arg name="launch_rviz" default="true" doc="Whether to launch Rviz or not"/>
+  
+    <!-- Launching ROS-TCP endpoint -->
+    <include file="$(find ros_tcp_endpoint)/launch/endpoint.launch">
+        <arg name="tcp_ip"   value="$(arg ip)"/>
+        <arg name="tcp_port" value="$(arg port)"/>
+    </include>
+
+    <!-- Run Rviz and load the default config -->
+    <node name="quest2rosTF" pkg="quest2ros" type="ros2quest.py" output="screen"/>
+
+    <!-- Run Rviz and load the default config -->
+    <node name="rviz" pkg="rviz" type="rviz" args="-d $(find quest2ros)/config/config.rviz" if="$(eval arg('launch_rviz'))"/>
+
+</launch>
