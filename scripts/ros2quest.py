@@ -2,9 +2,8 @@
 import rospy
 import sys
 
-from tf2_ros import TransformBroadcaster, StaticTransformBroadcaster
+from tf2_ros import TransformBroadcaster, StaticTransformBroadcaster, Buffer, TransformListener, LookupException, ConnectivityException
 from tf_conversions import transformations
-
 from quest2ros.msg import OVR2ROSInputs, OVR2ROSHapticFeedback
 from geometry_msgs.msg import PoseStamped, Twist, geometry_msgs
 import numpy as np 
@@ -15,6 +14,49 @@ class ros2quest:
 
   def __init__(self):
 
+    # TF broadcaster
+    self.br = TransformBroadcaster()
+    
+    # TF listener  
+    self.tf_buffer = Buffer()
+    self.tf_listener = TransformListener(self.tf_buffer)
+    
+    # Frame to reference joystick motion
+    self.reference_frame = PoseStamped()
+    
+    # ------------------------------------------------------ #
+    # ------------------------ Debug ----------------------- #
+    # ------------------------------------------------------ #
+    # Simulating the robot EE with a static TF
+    br_stat = StaticTransformBroadcaster()
+    
+    static_ee_transform = geometry_msgs.msg.TransformStamped()
+    static_ee_transform.child_frame_id = "base"
+    static_ee_transform.header.frame_id = "flange"
+    static_ee_transform.header.stamp = rospy.Time.now()
+    static_ee_transform.transform.translation.x = 0.0
+    static_ee_transform.transform.translation.y = 0.0
+    static_ee_transform.transform.translation.z = 0.0
+    quat = transformations.quaternion_from_euler(0, 0, 0)
+    static_ee_transform.transform.rotation.x = quat[0]
+    static_ee_transform.transform.rotation.y = quat[1]
+    static_ee_transform.transform.rotation.z = quat[2]
+    static_ee_transform.transform.rotation.w = quat[3]
+    
+    br_stat.sendTransform(static_ee_transform)
+    # ------------------------------------------------------ #
+    # ------------------------ Debug ----------------------- #
+    # ------------------------------------------------------ #
+    
+    # Getting robot's ee for create the new desired_pose reference frame
+    self.base2flange = geometry_msgs.msg.TransformStamped()
+    try:
+      self.base2flange = self.tf_buffer.lookup_transform("base", "flange", rospy.Time(), rospy.Duration(1))
+      
+    except (LookupException, ConnectivityException):
+      rospy.ERROR("Exception catched during lookup transform... killing myself")
+      rospy.signal_shutdown()
+      
     # Subscribers
     self.ovr2ros_right_hand_pose_sub = rospy.Subscriber("/q2r_right_hand_pose", PoseStamped, self.ovr2ros_right_hand_pose_callback)
     self.ovr2ros_right_hand_twist_sub = rospy.Subscriber("/q2r_right_hand_twist", Twist, self.ovr2ros_right_hand_twist_callback)
@@ -35,34 +77,6 @@ class ros2quest:
     self.left_hand_twist = Twist()
     self.left_hand_inputs = OVR2ROSInputs()
     
-    # TF broadcaster
-    self.br = TransformBroadcaster()
-    
-    # Frame to reference joystick motion
-    self.reference_frame = PoseStamped()
-    
-    # Simulating the robot EE with a static TF
-    br_stat = StaticTransformBroadcaster()
-    
-    static_ee_transform = geometry_msgs.msg.TransformStamped()
-    static_ee_transform.child_frame_id = "ee_robot"
-    static_ee_transform.header.frame_id = "world"
-    static_ee_transform.header.stamp = rospy.Time.now()
-    static_ee_transform.transform.translation.x = 1.0
-    static_ee_transform.transform.translation.y = 0.0
-    static_ee_transform.transform.translation.z = 0.0
-    quat = transformations.quaternion_from_euler(0, 0, 0)
-    static_ee_transform.transform.rotation.x = quat[0]
-    static_ee_transform.transform.rotation.y = quat[1]
-    static_ee_transform.transform.rotation.z = quat[2]
-    static_ee_transform.transform.rotation.w = quat[3]
-    
-    br_stat.sendTransform(static_ee_transform)
-    # Simulating the robot EE with a static TF
-    
-    # Delta
-    self.deltaTranslation = geometry_msgs.msg.Vector3()
-    self.deltaRotation = geometry_msgs.msg.Quaternion()
     
 
   #####################
@@ -72,15 +86,16 @@ class ros2quest:
   def ovr2ros_right_hand_pose_callback(self, data):    
     self.right_hand = data
     
-    t = geometry_msgs.msg.TransformStamped()
-    t.header.stamp = rospy.Time.now()
-    t.header.frame_id = "ee_robot"
-    t.child_frame_id = "ee_robot_reference"
-      
+    desiredPose = geometry_msgs.msg.TransformStamped()
+    desiredPose.header.stamp = rospy.Time.now()
+    desiredPose.header.frame_id = "base"
+    desiredPose.child_frame_id = "desired_pose"
+    
     if self.right_hand_inputs.button_lower == True:
-      self.deltaTranslation.x = self.right_hand.pose.position.x - self.reference_frame.pose.position.x 
-      self.deltaTranslation.y = self.right_hand.pose.position.y - self.reference_frame.pose.position.y 
-      self.deltaTranslation.z = self.right_hand.pose.position.z - self.reference_frame.pose.position.z 
+      delta = geometry_msgs.msg.Transform()
+      delta.translation.x = self.right_hand.pose.position.x - self.reference_frame.pose.position.x 
+      delta.translation.y = self.right_hand.pose.position.y - self.reference_frame.pose.position.y 
+      delta.translation.z = self.right_hand.pose.position.z - self.reference_frame.pose.position.z 
       
       q_ref = self.reference_frame.pose.orientation
       q_hand = self.right_hand.pose.orientation
@@ -91,25 +106,35 @@ class ros2quest:
       deltaRotationEul = tuple(i-j for i,j in zip(eul_hand, eul_ref))      
       deltaQuaternion = transformations.quaternion_from_euler(ai=deltaRotationEul[0], aj=deltaRotationEul[1], ak=deltaRotationEul[2])
       
-      self.deltaRotation.x = deltaQuaternion[0]
-      self.deltaRotation.y = deltaQuaternion[1]
-      self.deltaRotation.z = deltaQuaternion[2]
-      self.deltaRotation.w = deltaQuaternion[3]
+      delta.rotation.x = deltaQuaternion[0]
+      delta.rotation.y = deltaQuaternion[1]
+      delta.rotation.z = deltaQuaternion[2]
+      delta.rotation.w = deltaQuaternion[3]
       
-    else:
-      self.deltaTranslation.x = 0.0
-      self.deltaTranslation.y = 0.0
-      self.deltaTranslation.z = 0.0
-      self.deltaRotation.x = 0.0
-      self.deltaRotation.y = 0.0
-      self.deltaRotation.z = 0.0
-      self.deltaRotation.w = 1.0
-    
+      # rospy.loginfo("Delta translation: [%s, %s, %s]", delta.translation.x, delta.translation.y, delta.translation.z)
+      # rospy.loginfo("Delta rotation: [%s, %s, %s, %s]", delta.rotation.x, delta.rotation.y, delta.rotation.z, delta.rotation.w)
+      
+      desiredPose.transform.translation.x = self.base2flange.transform.translation.x + delta.translation.x
+      desiredPose.transform.translation.y = self.base2flange.transform.translation.y + delta.translation.y
+      desiredPose.transform.translation.z = self.base2flange.transform.translation.z + delta.translation.z
+      
+      desiredPose.transform.rotation.w = self.base2flange.transform.rotation.w * delta.rotation.w - self.base2flange.transform.rotation.x * delta.rotation.x - self.base2flange.transform.rotation.y * delta.rotation.y - self.base2flange.transform.rotation.z * delta.rotation.z
+      desiredPose.transform.rotation.x = self.base2flange.transform.rotation.w * delta.rotation.x + self.base2flange.transform.rotation.x * delta.rotation.w + self.base2flange.transform.rotation.y * delta.rotation.z - self.base2flange.transform.rotation.z * delta.rotation.y
+      desiredPose.transform.rotation.y = self.base2flange.transform.rotation.w * delta.rotation.y - self.base2flange.transform.rotation.x * delta.rotation.z + self.base2flange.transform.rotation.y * delta.rotation.w + self.base2flange.transform.rotation.z * delta.rotation.x
+      desiredPose.transform.rotation.z = self.base2flange.transform.rotation.w * delta.rotation.z + self.base2flange.transform.rotation.x * delta.rotation.y - self.base2flange.transform.rotation.y * delta.rotation.x + self.base2flange.transform.rotation.z * delta.rotation.w
 
-    t.transform.translation = self.deltaTranslation
-    t.transform.rotation = self.deltaRotation
+    else:
+      try:
+        self.base2flange = self.tf_buffer.lookup_transform("base", "flange", rospy.Time())
+        
+      except (LookupException, ConnectivityException):
+        rospy.ERROR("Exception catched during lookup transform")
+        return
+      
+      desiredPose.transform = self.base2flange.transform
     
-    self.br.sendTransform(t)
+    
+    self.br.sendTransform(desiredPose)
 
   def ovr2ros_right_hand_twist_callback(self, data):    
     self.right_hand_twist = data
@@ -118,12 +143,22 @@ class ros2quest:
     
     # Upper front -> save relative pose
     if self.right_hand_inputs.button_lower == False and data.button_lower == True:
-      self.reference_frame.pose.position = geometry_msgs.msg.Point(self.right_hand.pose.position.x, self.right_hand.pose.position.y, self.right_hand.pose.position.z)
-      
-      orientation = (self.right_hand.pose.orientation.x, self.right_hand.pose.orientation.y, self.right_hand.pose.orientation.z, self.right_hand.pose.orientation.w)
-      # orientation_inv = transformations.quaternion_inverse(orientation)
-      self.reference_frame.pose.orientation = geometry_msgs.msg.Quaternion(orientation[0], orientation[1], orientation[2], orientation[3])
-      
+      self.reference_frame.pose.position = geometry_msgs.msg.Point(self.right_hand.pose.position.x, 
+                                                                   self.right_hand.pose.position.y, 
+                                                                   self.right_hand.pose.position.z)
+      self.reference_frame.pose.orientation = geometry_msgs.msg.Quaternion(self.right_hand.pose.orientation.x, 
+                                                                           self.right_hand.pose.orientation.y, 
+                                                                           self.right_hand.pose.orientation.z, 
+                                                                           self.right_hand.pose.orientation.w)
+    
+      # Getting robot's ee for create the new desired_pose reference frame
+      try:
+        self.base2flange = self.tf_buffer.lookup_transform("base", "flange", rospy.Time())
+        
+      except (LookupException, ConnectivityException):
+        rospy.ERROR("Exception catched during lookup transform")
+        return
+          
     self.right_hand_inputs = data
 
   # Left hand 
@@ -140,7 +175,6 @@ def main(args):
   rospy.init_node('quest2rosdemo', anonymous=True)
 
   r2q = ros2quest()
-  rospy.sleep(1)
 
   r = rospy.Rate(300) 
 

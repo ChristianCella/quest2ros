@@ -10,8 +10,8 @@
         <arg name="tcp_port" value="$(arg port)"/>
     </include>
 
-    <!-- Run Rviz and load the default config -->
-    <node name="quest2rosTF" pkg="quest2ros" type="ros2quest.py" output="screen"/>
+    <!-- Run quest2ros node -->
+    <node name="quest2rosTF" pkg="quest2ros" type="ros2quest.py" output="screen" respawn="false"/>
 
     <!-- Run Rviz and load the default config -->
     <node name="rviz" pkg="rviz" type="rviz" args="-d $(find quest2ros)/config/config.rviz" if="$(eval arg('launch_rviz'))"/>
