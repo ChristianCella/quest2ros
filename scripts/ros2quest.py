@@ -129,7 +129,7 @@ class ros2quest:
           
   def base2flange(self):
     base2flange = geometry_msgs.msg.TransformStamped()
-    base2flange = self.tf_buffer.lookup_transform("base", "flange", rospy.Time(), rospy.Duration(1))
+    base2flange = self.tf_buffer.lookup_transform("base", "flange", rospy.Time(), rospy.Duration(10))
     self.base2flangePosition = np.array([base2flange.transform.translation.x, base2flange.transform.translation.y, base2flange.transform.translation.z])
     self.base2flangeOrientation = np.array([base2flange.transform.rotation.x, base2flange.transform.rotation.y, base2flange.transform.rotation.z, base2flange.transform.rotation.w])
 
