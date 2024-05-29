@@ -11,7 +11,7 @@
     </include>
 
     <!-- Run quest2ros node -->
-    <node name="quest2rosTF" pkg="quest2ros" type="ros2quest.py" output="screen" respawn="false"/>
+    <node name="quest2rosTF" pkg="quest2ros" type="ros2quest.py" output="screen" respawn="false" args="2> >(grep -v TF_REPEATED_DATA buffer_core)"/>
 
     <!-- Run Rviz and load the default config -->
     <node name="rviz" pkg="rviz" type="rviz" args="-d $(find quest2ros)/config/config.rviz" if="$(eval arg('launch_rviz'))"/>
