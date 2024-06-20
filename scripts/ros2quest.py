@@ -12,6 +12,9 @@ class ros2quest:
 
   def __init__(self):
 
+    # Time
+    self.last_timestamp = rospy.Time.now()
+    
     # TF broadcaster
     self.br = TransformBroadcaster()
     
@@ -22,6 +25,8 @@ class ros2quest:
     # Frame to reference joystick motion
     self.p_reference = np.zeros(3)
     self.q_reference = np.zeros(4)
+    self.reference_name="tabletop"
+    self.tcp_name="flange"
        
     # Getting robot's ee for create the new desired_pose reference frame
     try:
@@ -37,6 +42,7 @@ class ros2quest:
     # Publishers  
     self.ros2ovr_right_hand_haptic_feedback_pub = rospy.Publisher("/q2r_right_hand_haptic_feedback", OVR2ROSHapticFeedback, queue_size=1)
     self.ros2ovr_left_hand_haptic_feedback_pub = rospy.Publisher("/q2r_left_hand_haptic_feedback", OVR2ROSHapticFeedback, queue_size=1)
+    self.desired_pose_pub = rospy.Publisher("/desired_pose", PoseStamped, queue_size=1)
 
     self.right_hand_position = np.zeros(3)
     self.right_hand_orientation = np.zeros(4)
@@ -51,10 +57,15 @@ class ros2quest:
   def ovr2ros_right_hand_pose_callback(self, data):    
     self.right_hand_position = np.array([data.pose.position.x, data.pose.position.y, data.pose.position.z])
     self.right_hand_orientation = np.array([data.pose.orientation.x, data.pose.orientation.y, data.pose.orientation.z, data.pose.orientation.w])
+    now = rospy.Time.now()
+    
+    if now <= self.last_timestamp:
+      now = self.last_timestamp + rospy.Duration(1e-9)  # Increment by a nanosecond
+    self.last_timestamp = now
     
     desiredPose = geometry_msgs.msg.TransformStamped()
-    desiredPose.header.stamp = rospy.Time.now()
-    desiredPose.header.frame_id = "base"
+    desiredPose.header.stamp = now
+    desiredPose.header.frame_id = self.reference_name
     desiredPose.child_frame_id = "desired_pose"
     
     if self.right_hand_inputs.button_lower == True:
@@ -93,21 +104,18 @@ class ros2quest:
     
     self.br.sendTransform(desiredPose)
     
-    # For debugging purposes, we are printing also the pose of the hand wrt world
-    right_hand_transform = geometry_msgs.msg.TransformStamped()
-    right_hand_transform.header.stamp = rospy.Time.now()
-    right_hand_transform.header.frame_id = "base"
-    right_hand_transform.child_frame_id = "right_hand"
-    right_hand_transform.transform.translation.x = self.right_hand_position[0]
-    right_hand_transform.transform.translation.y = self.right_hand_position[1]
-    right_hand_transform.transform.translation.z = self.right_hand_position[2]
-    right_hand_transform.transform.rotation.x = self.right_hand_orientation[0]
-    right_hand_transform.transform.rotation.y = self.right_hand_orientation[1]
-    right_hand_transform.transform.rotation.z = self.right_hand_orientation[2]
-    right_hand_transform.transform.rotation.w = self.right_hand_orientation[3]
-    self.br.sendTransform(right_hand_transform
-                          )
-    
+    # Publishing hand pose to topic 
+    msg = geometry_msgs.msg.PoseStamped()
+    msg.header.stamp = now
+    msg.header.frame_id = self.reference_name
+    msg.pose.position.x = desiredPose.transform.translation.x
+    msg.pose.position.y = desiredPose.transform.translation.y
+    msg.pose.position.z = desiredPose.transform.translation.z
+    msg.pose.orientation.x = desiredPose.transform.rotation.x
+    msg.pose.orientation.y = desiredPose.transform.rotation.y
+    msg.pose.orientation.z = desiredPose.transform.rotation.z
+    msg.pose.orientation.w = desiredPose.transform.rotation.w
+    self.desired_pose_pub.publish(msg)
     
   def ovr2ros_right_hand_inputs_callback(self, data):
     
@@ -129,7 +137,7 @@ class ros2quest:
           
   def base2flange(self):
     base2flange = geometry_msgs.msg.TransformStamped()
-    base2flange = self.tf_buffer.lookup_transform("base", "flange", rospy.Time(), rospy.Duration(10))
+    base2flange = self.tf_buffer.lookup_transform(self.reference_name, self.tcp_name, rospy.Time(), rospy.Duration(10))
     self.base2flangePosition = np.array([base2flange.transform.translation.x, base2flange.transform.translation.y, base2flange.transform.translation.z])
     self.base2flangeOrientation = np.array([base2flange.transform.rotation.x, base2flange.transform.rotation.y, base2flange.transform.rotation.z, base2flange.transform.rotation.w])
 
