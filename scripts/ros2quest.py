@@ -25,8 +25,8 @@ class ros2quest:
     # Frame to reference joystick motion
     self.p_reference = np.zeros(3)
     self.q_reference = np.zeros(4)
-    self.reference_name="tabletop"
-    self.tcp_name="flange"
+    self.reference_name="base_link"
+    self.tcp_name="tool0"
        
     # Getting robot's ee for create the new desired_pose reference frame
     try:
