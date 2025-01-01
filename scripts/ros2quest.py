@@ -26,7 +26,7 @@ class ros2quest:
     # Frame to reference joystick motion
     self.p_reference = np.zeros(3)
     self.q_reference = np.zeros(4)
-    self.reference_name = "base_link"
+    self.reference_name = "teleop_link"
     self.tcp_name = "tool0"
        
     # Try to get the robot end-effector pose, provided it is already available
@@ -70,8 +70,8 @@ class ros2quest:
     Callback function for the right hand pose.
     Triggered whenever a new PoseStamped message arrives on the /q2r_right_hand_pose topic.
     '''   
-    self.right_hand_position = np.array([data.pose.position.y, -data.pose.position.x, data.pose.position.z])
-    # self.right_hand_position = np.array([data.pose.position.x, data.pose.position.y, data.pose.position.z])
+    # self.right_hand_position = np.array([data.pose.position.y, -data.pose.position.x, data.pose.position.z])
+    self.right_hand_position = np.array([data.pose.position.x, data.pose.position.y, data.pose.position.z])
     self.right_hand_orientation = np.array([data.pose.orientation.x, data.pose.orientation.y, data.pose.orientation.z, data.pose.orientation.w])
     now = rospy.Time.now()
     
