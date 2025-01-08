@@ -74,6 +74,10 @@ To use the package for teleoperation, open 4 terminals:
     source (your_path_to_ws)/devel/setup.bash
     roslaunch ur5e_mics_bringup raw_control.launch
     ```
+    If you want to connect to the real robot (after following the instructions to ping the robot and switching to remote control provided at this [link](https://github.com/MerlinLaboratory/ur5e_mics)), simply execute:
+     ```
+    roslaunch ur5e_mics_bringup raw_control.launch gazebo_sim:=false gripper_name:='hande'
+    ```
 
 3. **Terminal to bringup the communication visor-ROS:**
     ```
