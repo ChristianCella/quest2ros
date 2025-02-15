@@ -16,7 +16,7 @@ class ros2quest:
     # Time
     self.last_timestamp = rospy.Time.now()
     
-    # TF broadcaster (in this code the 'desired_pose'c frame is published)
+    # TF broadcaster (in this code the 'desired_pose' frame is published)
     self.br = TransformBroadcaster()
     
     # TF listener  
@@ -27,7 +27,7 @@ class ros2quest:
     self.p_reference = np.zeros(3)
     self.q_reference = np.zeros(4)
     self.reference_name = "teleop_link"
-    self.tcp_name = "tool0"
+    self.tcp_name = "dmp_link"
        
     # Try to get the robot end-effector pose, provided it is already available
     try:
@@ -173,7 +173,7 @@ class ros2quest:
     The lookup waits for 10 seconds before throwing an exception.
     '''
     base2flange = geometry_msgs.msg.TransformStamped()
-    base2flange = self.tf_buffer.lookup_transform(self.reference_name, self.tcp_name, rospy.Time(), rospy.Duration(10))
+    base2flange = self.tf_buffer.lookup_transform(self.reference_name, self.tcp_name, rospy.Time(), rospy.Duration(1.0))
     self.base2flangePosition = np.array([base2flange.transform.translation.x, base2flange.transform.translation.y, base2flange.transform.translation.z])
     self.base2flangeOrientation = np.array([base2flange.transform.rotation.x, base2flange.transform.rotation.y, base2flange.transform.rotation.z, base2flange.transform.rotation.w])
 
